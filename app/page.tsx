@@ -5,20 +5,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMiniApp } from "./providers/MiniAppProvider";
 import { encodeFunctionData, parseEther } from "viem";
 import { base } from "wagmi/chains";
-import {
-  useAccount,
-  useConnect,
-  useDisconnect,
-  useSendTransaction,
-  useSwitchChain,
-  useWaitForTransactionReceipt,
-} from "wagmi";
-import { isFarcasterMiniAppConnector, miniAppConnector } from "@/lib/wagmiConfig";
+import { useAccount, useConnect, useDisconnect, useSendTransaction, useWaitForTransactionReceipt } from "wagmi";
 import {
   GRUZGAME05_CHECKIN_PRICE_ETH,
   getGruzGame05ContractAddress,
   gruzGame05OnchainAbi,
-  isGruzGame05ContractConfigured,
   withGruzGame05BuilderCodeDataSuffix,
 } from "@/lib/contracts/gruzgame05Onchain";
 import styles from "./page.module.css";
@@ -92,10 +83,9 @@ function savePlayers(players: Record<string, PlayerState>) {
 }
 
 export default function Home() {
-  const { context, isReady: isMiniAppReady, isInMiniApp } = useMiniApp();
+  const { context } = useMiniApp();
   const { address, isConnected, chainId } = useAccount();
   const contractAddress = getGruzGame05ContractAddress();
-  const contractReady = isGruzGame05ContractConfigured();
   const [view, setView] = useState<View>("menu");
   const [state, setState] = useState<GameState | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
@@ -113,7 +103,6 @@ export default function Home() {
 
   const { connectAsync, connectors, isPending: isConnectPending } = useConnect();
   const { disconnect } = useDisconnect();
-  const { switchChainAsync } = useSwitchChain();
   const {
     data: txHash,
     isPending: isWritePending,
@@ -147,81 +136,17 @@ export default function Home() {
     [connectors],
   );
 
-  const farcasterConnector = useMemo(
-    () => connectors.find(isFarcasterMiniAppConnector) ?? miniAppConnector,
-    [connectors],
-  );
-
-  const preferredConnector = useMemo(() => {
-    if (isInMiniApp) {
-      return farcasterConnector;
-    }
-    return (
+  const preferredConnector = useMemo(
+    () =>
+      walletConnectors.find((connector) => connector.id === "baseAccount") ??
+      walletConnectors.find((connector) => connector.id === "farcaster") ??
+      walletConnectors.find((connector) => connector.name.toLowerCase().includes("base")) ??
       walletConnectors.find((connector) => connector.name.toLowerCase().includes("rabby")) ??
       walletConnectors.find((connector) => connector.name.toLowerCase().includes("metamask")) ??
       walletConnectors.find((connector) => connector.name.toLowerCase().includes("injected")) ??
-      walletConnectors[0]
-    );
-  }, [farcasterConnector, isInMiniApp, walletConnectors]);
-
-  const ensureWalletReady = useCallback(async (): Promise<boolean> => {
-    if (!contractReady) {
-      setError("Контракт не настроен. Проверьте GRUZGAME05_CONTRACT_ADDRESS в lib/contracts/gruzgame05Onchain.ts");
-      return false;
-    }
-
-    if (!isConnected || !address) {
-      const connector = preferredConnector;
-      if (!connector) {
-        setError(isInMiniApp ? "Не удалось подключить кошелёк Base App." : "Подключи кошелёк.");
-        return false;
-      }
-      try {
-        await connectAsync({ connector, chainId: base.id });
-        setShowWalletOptions(false);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Не удалось подключить кошелёк.");
-        if (!isInMiniApp) {
-          setShowWalletOptions(true);
-        }
-        return false;
-      }
-    }
-
-    if (chainId !== base.id) {
-      try {
-        await switchChainAsync({ chainId: base.id });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Переключите сеть на Base Mainnet.");
-        return false;
-      }
-    }
-
-    return true;
-  }, [
-    address,
-    chainId,
-    connectAsync,
-    contractReady,
-    isConnected,
-    isInMiniApp,
-    preferredConnector,
-    switchChainAsync,
-  ]);
-
-  useEffect(() => {
-    if (!isMiniAppReady || !isInMiniApp || isConnected || isConnectPending) {
-      return;
-    }
-    void connectAsync({ connector: farcasterConnector, chainId: base.id }).catch(() => undefined);
-  }, [
-    connectAsync,
-    farcasterConnector,
-    isConnected,
-    isConnectPending,
-    isInMiniApp,
-    isMiniAppReady,
-  ]);
+      walletConnectors[0],
+    [walletConnectors],
+  );
 
   const updateLeaderboard = useCallback(() => {
     const players = parsePlayers();
@@ -386,11 +311,8 @@ export default function Home() {
   }, [finalizeTransaction, isTxFailed, isTxMined, resetSendTransaction, txHash]);
 
   const handleTap = () => {
-    if (!state || isBusy) return;
-    void (async () => {
-      if (!(await ensureWalletReady())) return;
-      setPendingTaps((prev) => prev + 1);
-    })();
+    if (!state || !address || !isCorrectChain || isBusy) return;
+    setPendingTaps((prev) => prev + 1);
   };
 
   const handleConnectWallet = async (connector = preferredConnector) => {
@@ -410,7 +332,7 @@ export default function Home() {
   };
 
   const handleSyncTaps = async () => {
-    if (pendingTaps <= 0 || !(await ensureWalletReady())) return;
+    if (!address || !isCorrectChain || pendingTaps <= 0) return;
     setError("");
     try {
       processedTxHashRef.current = null;
@@ -438,7 +360,7 @@ export default function Home() {
   };
 
   const handleCheckin = async () => {
-    if (!state?.canCheckinNow || !(await ensureWalletReady())) return;
+    if (!address || !state?.canCheckinNow) return;
     setError("");
     try {
       processedTxHashRef.current = null;
@@ -481,13 +403,10 @@ export default function Home() {
         {!isConnected || !address ? (
           <div className={styles.walletPanel}>
             <p className={styles.warning}>
-              {isInMiniApp
-                ? isConnectPending
-                  ? "Подключение кошелька Base App..."
-                  : "Кошелёк Base App подключается автоматически."
-                : "Подключи Rabby, MetaMask или Base Account, чтобы играть через сайт."}
+              {isConnectPending
+                ? "Подключение кошелька Base..."
+                : "Подключи Rabby, MetaMask или Base Account, чтобы играть."}
             </p>
-            {!isInMiniApp && (
             <button
               className={styles.pokemonButton}
               type="button"
@@ -502,11 +421,7 @@ export default function Home() {
             >
               {isConnectPending ? "Подключение..." : "Подключить кошелек"}
             </button>
-            )}
-            {isInMiniApp && isConnectPending && (
-              <p className={styles.hint}>Ожидайте подключения...</p>
-            )}
-            {!isInMiniApp && showWalletOptions && (
+            {showWalletOptions && (
               <div className={styles.walletOptions}>
                 {walletConnectors.length === 0 ? (
                   <p className={styles.hint}>Rabby или MetaMask не найдены в браузере.</p>
@@ -577,7 +492,7 @@ export default function Home() {
               className={styles.pokemonTapButton}
               type="button"
               onClick={handleTap}
-              disabled={!state || isBusy}
+              disabled={!state || isBusy || !isCorrectChain}
             >
               <span className={styles.sparkle}>✨</span>
               <div className={styles.pokemonVisual}>
@@ -598,7 +513,7 @@ export default function Home() {
               className={styles.pokemonButton}
               type="button"
               onClick={() => void handleSyncTaps()}
-              disabled={pendingTaps <= 0 || isBusy}
+              disabled={pendingTaps <= 0 || !isCorrectChain || isBusy}
             >
               {isSubmittingTap || isWritePending || isTxMining
                 ? "Транзакция..."
@@ -618,7 +533,7 @@ export default function Home() {
               className={styles.pokemonButton}
               type="button"
               onClick={() => void handleCheckin()}
-              disabled={!state?.canCheckinNow || isBusy}
+              disabled={!state?.canCheckinNow || isBusy || !address || !isCorrectChain}
             >
               {isBusy
                 ? "Транзакция..."

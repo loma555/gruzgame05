@@ -6,35 +6,40 @@ import sdk from '@farcaster/miniapp-sdk';
 interface MiniAppContextValue {
   context: Awaited<typeof sdk.context> | null;
   isReady: boolean;
-  isInMiniApp: boolean;
 }
 
 export const MiniAppContext = createContext<MiniAppContextValue>({
   context: null,
   isReady: false,
-  isInMiniApp: false,
 });
 
 export function useMiniApp() {
   return useContext(MiniAppContext);
 }
 
+async function signalMiniAppReady() {
+  try {
+    const isInApp = await sdk.isInMiniApp();
+    if (isInApp) {
+      await sdk.actions.ready();
+    }
+  } catch {
+    // Safe no-op outside Base App or if host is not ready yet.
+  }
+}
+
 export function MiniAppProvider({ children }: { children: ReactNode }) {
   const [context, setContext] = useState<Awaited<typeof sdk.context> | null>(null);
   const [isReady, setIsReady] = useState(false);
-  const [isInMiniApp, setIsInMiniApp] = useState(false);
 
   useEffect(() => {
     const init = async () => {
       try {
-        const inApp = await sdk.isInMiniApp();
-        setIsInMiniApp(inApp);
-        if (inApp) {
+        const isInApp = await sdk.isInMiniApp();
+        if (isInApp) {
           setContext(await sdk.context);
         }
-        await sdk.actions.ready();
-      } catch {
-        // Outside Base App host
+        await signalMiniAppReady();
       } finally {
         setIsReady(true);
       }
@@ -44,7 +49,7 @@ export function MiniAppProvider({ children }: { children: ReactNode }) {
 
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
-        void sdk.actions.ready().catch(() => undefined);
+        void signalMiniAppReady();
       }
     };
 
@@ -53,7 +58,7 @@ export function MiniAppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <MiniAppContext.Provider value={{ context, isReady, isInMiniApp }}>
+    <MiniAppContext.Provider value={{ context, isReady }}>
       {children}
     </MiniAppContext.Provider>
   );
