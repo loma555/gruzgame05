@@ -42,6 +42,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta name="base:app_id" content="6a147457ed0edcf2e9a87728" />
+      </head>
       <body className={`${inter.variable} ${sourceCodePro.variable}`} suppressHydrationWarning>
         <Providers>
           <SafeArea>{children}</SafeArea>
