@@ -5,7 +5,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMiniApp } from "./providers/MiniAppProvider";
 import { encodeFunctionData, parseEther } from "viem";
 import { base } from "wagmi/chains";
-import { useAccount, useConnect, useDisconnect, useSendTransaction, useWaitForTransactionReceipt } from "wagmi";
+import {
+  useAccount,
+  useConnect,
+  useDisconnect,
+  useSendTransaction,
+  useSwitchChain,
+  useWaitForTransactionReceipt,
+} from "wagmi";
 import {
   GRUZGAME05_CHECKIN_PRICE_ETH,
   getGruzGame05ContractAddress,
@@ -103,6 +110,7 @@ export default function Home() {
 
   const { connectAsync, connectors, isPending: isConnectPending } = useConnect();
   const { disconnect } = useDisconnect();
+  const { switchChainAsync } = useSwitchChain();
   const {
     data: txHash,
     isPending: isWritePending,
@@ -138,15 +146,45 @@ export default function Home() {
 
   const preferredConnector = useMemo(
     () =>
-      walletConnectors.find((connector) => connector.id === "baseAccount") ??
-      walletConnectors.find((connector) => connector.id === "farcaster") ??
+      connectors.find((connector) => connector.id === "baseAccount") ??
+      connectors.find((connector) => connector.id === "farcaster") ??
       walletConnectors.find((connector) => connector.name.toLowerCase().includes("base")) ??
       walletConnectors.find((connector) => connector.name.toLowerCase().includes("rabby")) ??
       walletConnectors.find((connector) => connector.name.toLowerCase().includes("metamask")) ??
       walletConnectors.find((connector) => connector.name.toLowerCase().includes("injected")) ??
       walletConnectors[0],
-    [walletConnectors],
+    [connectors, walletConnectors],
   );
+
+  const ensureWalletReady = useCallback(async (): Promise<boolean> => {
+    if (!isConnected || !address) {
+      if (preferredConnector) {
+        try {
+          await connectAsync({ connector: preferredConnector, chainId: base.id });
+          setShowWalletOptions(false);
+          setError("");
+          return true;
+        } catch (err) {
+          setShowWalletOptions(true);
+          setError(err instanceof Error ? err.message : "Подключи Base Account или другой кошелек.");
+          return false;
+        }
+      }
+      setError("Подключи кошелек.");
+      return false;
+    }
+
+    if (chainId !== base.id) {
+      try {
+        await switchChainAsync({ chainId: base.id });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Переключите сеть кошелька на Base Mainnet.");
+        return false;
+      }
+    }
+
+    return true;
+  }, [address, chainId, connectAsync, isConnected, preferredConnector, switchChainAsync]);
 
   const updateLeaderboard = useCallback(() => {
     const players = parsePlayers();
@@ -311,8 +349,11 @@ export default function Home() {
   }, [finalizeTransaction, isTxFailed, isTxMined, resetSendTransaction, txHash]);
 
   const handleTap = () => {
-    if (!state || !address || !isCorrectChain || isBusy) return;
-    setPendingTaps((prev) => prev + 1);
+    if (!state || isBusy) return;
+    void (async () => {
+      if (!(await ensureWalletReady())) return;
+      setPendingTaps((prev) => prev + 1);
+    })();
   };
 
   const handleConnectWallet = async (connector = preferredConnector) => {
@@ -332,7 +373,7 @@ export default function Home() {
   };
 
   const handleSyncTaps = async () => {
-    if (!address || !isCorrectChain || pendingTaps <= 0) return;
+    if (!(await ensureWalletReady()) || pendingTaps <= 0) return;
     setError("");
     try {
       processedTxHashRef.current = null;
@@ -360,7 +401,7 @@ export default function Home() {
   };
 
   const handleCheckin = async () => {
-    if (!address || !state?.canCheckinNow) return;
+    if (!(await ensureWalletReady()) || !state?.canCheckinNow) return;
     setError("");
     try {
       processedTxHashRef.current = null;
@@ -404,8 +445,8 @@ export default function Home() {
           <div className={styles.walletPanel}>
             <p className={styles.warning}>
               {isConnectPending
-                ? "Подключение кошелька Base..."
-                : "Подключи Rabby, MetaMask или Base Account, чтобы играть."}
+                ? "Подключение кошелька..."
+                : "Подключи Rabby, MetaMask, Base Account или Farcaster, чтобы играть."}
             </p>
             <button
               className={styles.pokemonButton}
@@ -492,7 +533,7 @@ export default function Home() {
               className={styles.pokemonTapButton}
               type="button"
               onClick={handleTap}
-              disabled={!state || isBusy || !isCorrectChain}
+              disabled={!state || isBusy}
             >
               <span className={styles.sparkle}>✨</span>
               <div className={styles.pokemonVisual}>
@@ -513,7 +554,7 @@ export default function Home() {
               className={styles.pokemonButton}
               type="button"
               onClick={() => void handleSyncTaps()}
-              disabled={pendingTaps <= 0 || !isCorrectChain || isBusy}
+              disabled={pendingTaps <= 0 || isBusy}
             >
               {isSubmittingTap || isWritePending || isTxMining
                 ? "Транзакция..."
@@ -533,7 +574,7 @@ export default function Home() {
               className={styles.pokemonButton}
               type="button"
               onClick={() => void handleCheckin()}
-              disabled={!state?.canCheckinNow || isBusy || !address || !isCorrectChain}
+              disabled={!state?.canCheckinNow || isBusy}
             >
               {isBusy
                 ? "Транзакция..."
