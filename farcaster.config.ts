@@ -1,3 +1,4 @@
+import { APP_DISPLAY_NAME } from "./lib/appConfig";
 import { getSiteUrl } from "./lib/siteUrl";
 
 const ROOT_URL = getSiteUrl();
@@ -15,8 +16,8 @@ export const farcasterConfig = {
   },
   miniapp: {
     version: '1',
-    name: 'Pokemon Tap',
-    subtitle: 'Pokemon Tap Game',
+    name: APP_DISPLAY_NAME,
+    subtitle: `${APP_DISPLAY_NAME} — gruzgame05`,
     description: 'Tap the Pokemon, perform onchain check-ins every 2 minutes, and climb the trainer leaderboard on Base.',
     imageUrl: `${ROOT_URL}/pokeball.png`,
     buttonTitle: 'Tap Pokemon',
@@ -30,7 +31,7 @@ export const farcasterConfig = {
     tags: ['game', 'tap', 'pokemon', 'leaderboard', 'onchain', 'base'],
     heroImageUrl: `${ROOT_URL}/pokeball.png`,
     tagline: 'Tap. Check in. Catch the lead.',
-    ogTitle: 'Pokemon Tap',
+    ogTitle: APP_DISPLAY_NAME,
     ogDescription: 'Pokemon tap game for Base App.',
     ogImageUrl: `${ROOT_URL}/pokeball.png`,
     castShareUrl: ROOT_URL,

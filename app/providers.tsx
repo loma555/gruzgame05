@@ -5,6 +5,7 @@ import { createConfig, createStorage, cookieStorage, http, WagmiProvider } from 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { farcasterMiniApp } from "@farcaster/miniapp-wagmi-connector";
 import { baseAccount, injected } from "wagmi/connectors";
+import { APP_DISPLAY_NAME } from "@/lib/appConfig";
 import { MiniAppProvider } from "./providers/MiniAppProvider";
 
 const config = createConfig({
@@ -15,7 +16,7 @@ const config = createConfig({
     injected({ target: "metaMask" }),
     injected(),
     baseAccount({
-      appName: "Pokemon Tap",
+      appName: APP_DISPLAY_NAME,
     }),
   ],
   storage: createStorage({ storage: cookieStorage }),

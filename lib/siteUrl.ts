@@ -1,6 +1,5 @@
 /**
- * Resolves public site URL without manual Vercel env (same pattern as gruzgame02 / gamegruz1).
- * Vercel injects VERCEL_PROJECT_PRODUCTION_URL (prod) and VERCEL_URL (preview) automatically.
+ * Public site URL — no manual Vercel env. Uses VERCEL_* automatically.
  */
 export function getSiteUrl(): string {
   if (process.env.NEXT_PUBLIC_URL) {

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter, Source_Code_Pro } from 'next/font/google';
 import { SafeArea } from './components/SafeArea';
+import { BASE_APP_ID } from '@/lib/appConfig';
 import { farcasterConfig } from '../farcaster.config';
 import { Providers } from './providers';
 import './globals.css';
@@ -43,7 +44,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <meta name="base:app_id" content="6a147457ed0edcf2e9a87728" />
+        <meta name="base:app_id" content={BASE_APP_ID} />
       </head>
       <body className={`${inter.variable} ${sourceCodePro.variable}`} suppressHydrationWarning>
         <Providers>

@@ -1,11 +1,10 @@
 /**
- * After you set builder code in lib/contracts/gruzgame05Onchain.ts, run:
- * node scripts/verify-calldata.mjs
+ * Verify tap calldata includes builder suffix. Run: node scripts/verify-calldata.mjs
  */
 import { encodeFunctionData } from "viem";
 
-const BUILDER_CODE = process.env.BUILDER_CODE ?? "";
-const BUILDER_SUFFIX = process.env.BUILDER_SUFFIX ?? "0x";
+const BUILDER_CODE = "bc_we8y0l4n";
+const BUILDER_SUFFIX = "0x62635f77653879306c346e0b0080218021802180218021802180218021";
 
 const abi = [
   {
@@ -23,8 +22,9 @@ const data = encodeFunctionData({
   args: [1n],
 });
 
-const suffix = BUILDER_SUFFIX.startsWith("0x") ? BUILDER_SUFFIX.slice(2) : BUILDER_SUFFIX;
-const full = suffix ? `${data}${suffix}` : data;
+const suffix = BUILDER_SUFFIX.slice(2);
+const full = `${data}${suffix}`;
 
-console.log("builder code:", BUILDER_CODE || "(not set)");
+console.log("builder code:", BUILDER_CODE);
 console.log("tap calldata:", full);
+console.log("ends with suffix:", full.endsWith(suffix));

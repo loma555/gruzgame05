@@ -332,7 +332,7 @@ export default function Home() {
 
   const ensureContract = () => {
     if (!contractReady) {
-      setError("Сначала задеплойте контракт и укажите адрес в lib/contracts/gruzgame05Onchain.ts");
+      setError("Контракт не настроен. Проверьте GRUZGAME05_CONTRACT_ADDRESS в lib/contracts/gruzgame05Onchain.ts");
       return false;
     }
     return true;

@@ -1,29 +1,17 @@
 # Gruz Game 05 — Pokemon Tap
 
-Base App mini app (Next.js + wagmi + Farcaster Mini App SDK).
+Base App mini app for **loma555** (Next.js + wagmi + Farcaster Mini App SDK).
 
-Based on [Build an app on Base](https://docs.base.org/apps/quickstart/build-app) and the `gruzgame04` scaffold.
+## Config (hardcoded, no Vercel env)
 
-## Stack
+| Item | Value |
+|------|--------|
+| Base App ID | `6a147457ed0edcf2e9a87728` → `lib/appConfig.ts` + `<meta name="base:app_id">` |
+| Contract (Base Mainnet) | [0x2E1a2116d4A449d137953931C2C787Ad86b191Ad](https://basescan.org/address/0x2E1a2116d4A449d137953931C2C787Ad86b191Ad) |
+| Builder code | `bc_we8y0l4n` |
+| Builder calldata suffix | `0x62635f77653879306c346e0b0080218021802180218021802180218021` |
 
-- Next.js App Router
-- wagmi + viem (`base` mainnet)
-- `@base-org/account` connector
-- Farcaster Mini App SDK + Quick Auth
-
-## Environment
-
-Copy `.example.env` to `.env.local` (optional):
-
-```bash
-NEXT_PUBLIC_URL=http://localhost:3000
-```
-
-**Vercel:** no manual env required.
-
-- Site URL: auto from `VERCEL_PROJECT_PRODUCTION_URL` / `VERCEL_URL` via `lib/siteUrl.ts`
-- Contract address: hardcoded in `lib/contracts/gruzgame05Onchain.ts`
-- Builder code: set in the same file when you have it from [base.dev](https://base.dev)
+All onchain settings: `lib/contracts/gruzgame05Onchain.ts`
 
 ## Run
 
@@ -32,17 +20,19 @@ npm install
 npm run dev
 ```
 
-**Deployed contract (Base Mainnet):** [0x2E1a2116d4A449d137953931C2C787Ad86b191Ad](https://basescan.org/address/0x2E1a2116d4A449d137953931C2C787Ad86b191Ad)
+Optional local URL override: `.env.local` with `NEXT_PUBLIC_URL=http://localhost:3000`
 
-Add builder code + data suffix from base.dev in `lib/contracts/gruzgame05Onchain.ts` when ready.
+## Verify builder calldata
 
-## GitHub (loma555)
+```bash
+node scripts/verify-calldata.mjs
+```
 
-Verified commits: SSH signing key `~/.ssh/id_ed25519_github_sign` — add as **Signing key** on GitHub.
+## GitHub
+
+Repo: https://github.com/loma555/gruzgame05
 
 ```bash
 git config user.email "lomariss556j@rambler.ru"
 git config user.name "loma555"
 ```
-
-GitHub CLI auth: `gh auth status` → account `loma555`.

@@ -4,9 +4,10 @@ export const GRUZGAME05_CONTRACT_ADDRESS: `0x${string}` =
 
 export const GRUZGAME05_CHECKIN_PRICE_ETH = "0.00001";
 
-/** From base.dev → Settings → Builder Codes (loma555). Fill when ready. */
-export const GRUZGAME05_BUILDER_CODE = "";
-export const GRUZGAME05_BUILDER_CODE_DATA_SUFFIX: `0x${string}` = "0x";
+/** base.dev → Builder Codes (loma555 / gruzgame05) */
+export const GRUZGAME05_BUILDER_CODE = "bc_we8y0l4n";
+export const GRUZGAME05_BUILDER_CODE_DATA_SUFFIX: `0x${string}` =
+  "0x62635f77653879306c346e0b0080218021802180218021802180218021";
 
 export const gruzGame05OnchainAbi = [
   {
