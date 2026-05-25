@@ -1,0 +1,321 @@
+.container {
+  position: relative;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: #f8fafc;
+}
+
+.skyLayer {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 15%, rgba(255, 255, 255, 0.35) 0%, transparent 45%),
+    linear-gradient(180deg, #7dd3fc 0%, #38bdf8 42%, #0ea5e9 100%);
+  z-index: 0;
+}
+
+.cloudLayer {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 15% 22%, rgba(255, 255, 255, 0.75) 0 8%, transparent 9%),
+    radial-gradient(circle at 28% 20%, rgba(255, 255, 255, 0.65) 0 6%, transparent 7%),
+    radial-gradient(circle at 72% 18%, rgba(255, 255, 255, 0.7) 0 9%, transparent 10%),
+    radial-gradient(circle at 85% 24%, rgba(255, 255, 255, 0.55) 0 7%, transparent 8%);
+  z-index: 1;
+}
+
+.grassLayer {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 38%;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      #4ade80 0 40px,
+      #22c55e 40px 80px,
+      #16a34a 80px 120px
+    ),
+    linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.15));
+  z-index: 2;
+}
+
+.pokeballLayer {
+  position: absolute;
+  top: 10%;
+  left: 8%;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #ef4444 0 46%, #fff 46% 54%, #fff 54% 100%);
+  border: 3px solid #1e293b;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  z-index: 3;
+}
+
+.pokeballLayer::after {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid #1e293b;
+}
+
+.card {
+  position: relative;
+  z-index: 4;
+  width: min(96vw, 560px);
+  border-radius: 20px;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.88);
+  border: 2px solid rgba(250, 204, 21, 0.5);
+  backdrop-filter: blur(8px);
+  box-shadow:
+    0 0 24px rgba(0, 0, 0, 0.35),
+    inset 0 0 40px rgba(250, 204, 21, 0.06);
+}
+
+.title {
+  text-align: center;
+  font-size: clamp(1.5rem, 6vw, 2.4rem);
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+  color: #fde047;
+  text-shadow:
+    0 2px 0 #854d0e,
+    0 0 16px rgba(253, 224, 71, 0.35);
+}
+
+.playerLine {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: rgba(30, 41, 59, 0.75);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  font-size: 0.9rem;
+  border: 1px solid rgba(250, 204, 21, 0.25);
+}
+
+.walletPanel {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.walletOptions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.disconnectButton {
+  border: 1px solid rgba(253, 224, 71, 0.45);
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: #fde047;
+  background: rgba(15, 23, 42, 0.5);
+  cursor: pointer;
+}
+
+.warning {
+  margin: 8px 0 14px;
+  color: #fde047;
+  text-align: center;
+}
+
+.error {
+  margin: 8px 0 12px;
+  color: #fca5a5;
+  text-align: center;
+}
+
+.scorePanel {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.scorePanel > div {
+  background: rgba(30, 41, 59, 0.75);
+  border-radius: 12px;
+  padding: 10px;
+  text-align: center;
+  border: 1px solid rgba(250, 204, 21, 0.35);
+}
+
+.metaLabel {
+  font-size: 0.78rem;
+  opacity: 0.84;
+  color: #cbd5e1;
+}
+
+.metaValue {
+  font-size: 1.08rem;
+  font-weight: 700;
+  margin-top: 4px;
+  color: #fef08a;
+}
+
+.menuButtons,
+.viewBlock {
+  display: grid;
+  gap: 10px;
+}
+
+.pokemonButton,
+.smallButton,
+.backButton {
+  border: none;
+  border-radius: 12px;
+  padding: 12px;
+  color: #fffbeb;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(180deg, #facc15 0%, #ca8a04 100%);
+  box-shadow:
+    0 2px 0 #854d0e,
+    0 8px 16px rgba(0, 0, 0, 0.3),
+    0 0 12px rgba(250, 204, 21, 0.25);
+  border: 1px solid rgba(254, 240, 138, 0.45);
+}
+
+.smallButton {
+  width: 140px;
+  justify-self: center;
+  font-size: 0.86rem;
+  padding: 8px;
+}
+
+.backButton {
+  margin-top: 14px;
+  width: 100%;
+}
+
+.pokemonButton:disabled,
+.backButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pokemonTapButton {
+  border: none;
+  border-radius: 22px;
+  padding: 18px;
+  min-height: 260px;
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  cursor: pointer;
+  background:
+    radial-gradient(circle at 50% 30%, #fef08a 0%, #facc15 35%, #eab308 70%, #ca8a04 100%);
+  color: #1e293b;
+  border: 3px solid rgba(30, 41, 59, 0.65);
+  box-shadow:
+    inset 0 -12px 24px rgba(0, 0, 0, 0.2),
+    0 0 22px rgba(250, 204, 21, 0.35);
+  transition: transform 0.08s ease;
+}
+
+.pokemonTapButton:active {
+  transform: scale(0.96) translateY(2px);
+}
+
+.pokemonTapButton:disabled {
+  opacity: 0.6;
+}
+
+.pokemonVisual {
+  position: relative;
+  width: min(220px, 70vw);
+  height: 160px;
+  display: grid;
+  place-items: center;
+}
+
+.pokeballSprite {
+  width: min(200px, 55vw);
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.35));
+  transition: transform 0.08s ease;
+  user-select: none;
+  pointer-events: none;
+}
+
+.pokemonTapButton:active .pokeballSprite {
+  transform: scale(1.08) translateY(-4px) rotate(-8deg);
+}
+
+.sparkle {
+  position: absolute;
+  top: 8%;
+  right: 12%;
+  font-size: 1.6rem;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+  pointer-events: none;
+}
+
+.pokemonTapButton:active .sparkle {
+  opacity: 1;
+}
+
+.tapCaption {
+  letter-spacing: 0.08em;
+  font-size: 0.95rem;
+  color: #1e293b;
+  font-weight: 800;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.hint {
+  text-align: center;
+  font-size: 0.86rem;
+  opacity: 0.9;
+  color: #e2e8f0;
+}
+
+.checkinText {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.timer {
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #fde047;
+}
+
+.leaderboard {
+  margin-top: 10px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(250, 204, 21, 0.3);
+}
+
+.leaderboardRow {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.leaderboardRow:last-child {
+  border-bottom: none;
+}
