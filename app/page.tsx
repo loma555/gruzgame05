@@ -3,7 +3,8 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMiniApp } from "./providers/MiniAppProvider";
-import { encodeFunctionData, parseEther } from "viem";
+import { encodeFunctionData, isAddress, parseEther, type Address } from "viem";
+import { readOnchainLeaderboard, readOnchainPlayer } from "@/lib/onchain";
 import { base } from "wagmi/chains";
 import {
   useAccount,
@@ -72,6 +73,36 @@ function getSecondsToNextCheckinWindow(nowMs: number = Date.now()): number {
   return remainder === 0 ? CHECKIN_INTERVAL_SECONDS : CHECKIN_INTERVAL_SECONDS - remainder;
 }
 
+function getSecondsUntilNextSlot(slot: number, nowMs: number = Date.now()): number {
+  const nextSlotStartMs = (slot + 1) * CHECKIN_INTERVAL_SECONDS * 1000;
+  return Math.max(0, Math.ceil((nextSlotStartMs - nowMs) / 1000));
+}
+
+function emptyPlayer(): PlayerState {
+  return {
+    score: 0,
+    streak: 0,
+    lastCheckinSlot: null,
+    totalCheckins: 0,
+  };
+}
+
+function buildGameState(player: PlayerState, canCheckinOverride?: boolean): GameState {
+  const currentSlot = getCurrentCheckinSlot();
+  const lastSlot = player.lastCheckinSlot;
+  const canCheckinNow =
+    canCheckinOverride ?? (lastSlot === null || lastSlot !== currentSlot);
+
+  return {
+    score: player.score,
+    streak: player.streak,
+    multiplier: 1 + player.streak * 0.1,
+    canCheckinNow,
+    todayKey: String(currentSlot),
+    totalCheckins: player.totalCheckins,
+  };
+}
+
 function parsePlayers(): Record<string, PlayerState> {
   if (typeof window === "undefined") return {};
   try {
@@ -90,11 +121,11 @@ function savePlayers(players: Record<string, PlayerState>) {
 }
 
 export default function Home() {
-  const { context } = useMiniApp();
+  const { context, isReady: isMiniAppReady } = useMiniApp();
   const { address, isConnected, chainId } = useAccount();
   const contractAddress = getGruzGame05ContractAddress();
   const [view, setView] = useState<View>("menu");
-  const [state, setState] = useState<GameState | null>(null);
+  const [state, setState] = useState<GameState | null>(() => buildGameState(emptyPlayer()));
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
   const [countdown, setCountdown] = useState("00:00:00");
   const [error, setError] = useState("");
@@ -144,17 +175,26 @@ export default function Home() {
     [connectors],
   );
 
-  const preferredConnector = useMemo(
-    () =>
-      connectors.find((connector) => connector.id === "baseAccount") ??
-      connectors.find((connector) => connector.id === "farcaster") ??
-      walletConnectors.find((connector) => connector.name.toLowerCase().includes("base")) ??
+  const preferredConnector = useMemo(() => {
+    const inMiniApp = Boolean(context);
+    if (inMiniApp) {
+      return (
+        walletConnectors.find((connector) => connector.id === "baseAccount") ??
+        walletConnectors.find((connector) => connector.id === "farcaster") ??
+        walletConnectors.find((connector) => connector.name.toLowerCase().includes("base")) ??
+        walletConnectors[0]
+      );
+    }
+
+    return (
       walletConnectors.find((connector) => connector.name.toLowerCase().includes("rabby")) ??
       walletConnectors.find((connector) => connector.name.toLowerCase().includes("metamask")) ??
       walletConnectors.find((connector) => connector.name.toLowerCase().includes("injected")) ??
-      walletConnectors[0],
-    [connectors, walletConnectors],
-  );
+      walletConnectors.find((connector) => connector.id === "baseAccount") ??
+      walletConnectors.find((connector) => connector.id === "farcaster") ??
+      walletConnectors[0]
+    );
+  }, [context, walletConnectors]);
 
   const ensureWalletReady = useCallback(async (): Promise<boolean> => {
     if (!isConnected || !address) {
@@ -186,7 +226,25 @@ export default function Home() {
     return true;
   }, [address, chainId, connectAsync, isConnected, preferredConnector, switchChainAsync]);
 
-  const updateLeaderboard = useCallback(() => {
+  const updateLeaderboard = useCallback(async () => {
+    try {
+      const chainRows = await readOnchainLeaderboard(20);
+      if (chainRows.length > 0) {
+        setLeaderboard(
+          chainRows.map((row) => ({
+            rank: row.rank,
+            wallet: row.wallet,
+            score: row.score,
+            streak: 0,
+          })),
+        );
+        setCheckedUsersCount(chainRows.length);
+        return;
+      }
+    } catch {
+      // Fallback to local cache below.
+    }
+
     const players = parsePlayers();
     const rows = Object.entries(players)
       .map(([wallet, player]) => ({
@@ -206,58 +264,83 @@ export default function Home() {
     setCheckedUsersCount(Object.values(players).filter((player) => player.totalCheckins > 0).length);
   }, []);
 
-  const fetchState = useCallback(async () => {
-    if (!address) return;
-    try {
-      const players = parsePlayers();
-      const key = address.toLowerCase();
-      const currentSlot = getCurrentCheckinSlot();
-      const player = players[key] ?? {
-        score: 0,
-        streak: 0,
-        lastCheckinSlot: null,
-        totalCheckins: 0,
-      };
-      const canCheckinNow = player.lastCheckinSlot !== currentSlot;
+  const applyPlayerState = useCallback((player: PlayerState, canCheckinOverride?: boolean) => {
+    setState(buildGameState(player, canCheckinOverride));
+  }, []);
 
-      setState({
-        score: player.score,
-        streak: player.streak,
-        multiplier: 1 + player.streak * 0.1,
-        canCheckinNow,
-        todayKey: String(currentSlot),
-        totalCheckins: player.totalCheckins,
-      });
-      setCountdown(formatCountdownFromSeconds(getSecondsToNextCheckinWindow()));
-      updateLeaderboard();
+  const fetchState = useCallback(async () => {
+    try {
+      if (!address || !isAddress(address)) {
+        applyPlayerState(emptyPlayer());
+        void updateLeaderboard();
+        return;
+      }
+
+      const wallet = address as Address;
+      const players = parsePlayers();
+      const key = wallet.toLowerCase();
+      let player = players[key] ?? emptyPlayer();
+
+      let canCheckinFromChain: boolean | undefined;
+      try {
+        const onchain = await readOnchainPlayer(wallet);
+        const lastSlot = onchain.lastCheckinSlot === 0 ? null : onchain.lastCheckinSlot;
+        canCheckinFromChain = onchain.canCheckin;
+        player = {
+          score: onchain.score,
+          streak: onchain.streak,
+          lastCheckinSlot: lastSlot,
+          totalCheckins: onchain.totalCheckins,
+        };
+        players[key] = player;
+        savePlayers(players);
+      } catch {
+        // Keep local cache if RPC is temporarily unavailable.
+      }
+
+      applyPlayerState(player, canCheckinFromChain);
+      await updateLeaderboard();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Ошибка чтения локального состояния.");
+      setError(err instanceof Error ? err.message : "Ошибка чтения состояния.");
     }
-  }, [address, updateLeaderboard]);
+  }, [address, applyPlayerState, updateLeaderboard]);
 
   useEffect(() => {
-    if (!isConnected || !address) return;
+    if (!isMiniAppReady) return;
     setError("");
     void fetchState();
-  }, [isConnected, address, fetchState]);
+  }, [address, fetchState, isConnected, isMiniAppReady]);
 
   useEffect(() => {
-    let remaining = getSecondsToNextCheckinWindow();
     const tick = () => {
-      setCountdown(formatCountdownFromSeconds(remaining));
-      if (remaining <= 0) {
-        remaining = getSecondsToNextCheckinWindow();
-        void fetchState();
-      } else {
-        remaining = Math.max(0, remaining - 1);
+      if (!state) {
+        setCountdown(formatCountdownFromSeconds(getSecondsToNextCheckinWindow()));
+        return;
       }
+
+      if (state.canCheckinNow) {
+        setCountdown(formatCountdownFromSeconds(getSecondsToNextCheckinWindow()));
+        return;
+      }
+
+      const slot = Number(state.todayKey);
+      setCountdown(formatCountdownFromSeconds(getSecondsUntilNextSlot(slot)));
     };
+
     tick();
-    const interval = setInterval(() => {
-      tick();
-    }, 1000);
+    const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [fetchState]);
+  }, [state]);
+
+  useEffect(() => {
+    if (!state?.canCheckinNow && state?.todayKey) {
+      const slot = Number(state.todayKey);
+      const timer = setTimeout(() => {
+        void fetchState();
+      }, getSecondsUntilNextSlot(slot) * 1000 + 200);
+      return () => clearTimeout(timer);
+    }
+  }, [fetchState, state?.canCheckinNow, state?.todayKey]);
 
   const finalizeTransaction = useCallback(
     async (hash: string, action: "tap" | "checkin") => {
@@ -349,7 +432,7 @@ export default function Home() {
   }, [finalizeTransaction, isTxFailed, isTxMined, resetSendTransaction, txHash]);
 
   const handleTap = () => {
-    if (!state || isBusy) return;
+    if (isBusy) return;
     void (async () => {
       if (!(await ensureWalletReady())) return;
       setPendingTaps((prev) => prev + 1);
@@ -533,7 +616,7 @@ export default function Home() {
               className={styles.pokemonTapButton}
               type="button"
               onClick={handleTap}
-              disabled={!state || isBusy}
+              disabled={isBusy}
             >
               <span className={styles.sparkle}>✨</span>
               <div className={styles.pokemonVisual}>
@@ -570,6 +653,11 @@ export default function Home() {
             </p>
             <p className={styles.hint}>Стоимость check-in: {GRUZGAME05_CHECKIN_PRICE_ETH} ETH</p>
             <p className={styles.timer}>{countdown}</p>
+            <p className={styles.hint}>
+              {state?.canCheckinNow
+                ? "Check-in доступен в этом окне"
+                : "До следующего окна check-in"}
+            </p>
             <button
               className={styles.pokemonButton}
               type="button"
@@ -580,7 +668,7 @@ export default function Home() {
                 ? "Транзакция..."
                 : state?.canCheckinNow
                   ? "Сделать ончейн check-in"
-                  : "Чек-ин уже сделан в этом окне"}
+                  : "Ждите следующее окно"}
             </button>
             {txHash && <p className={styles.hint}>Tx: {shortWallet(txHash)}</p>}
             <p className={styles.hint}>Всего твоих check-in: {state?.totalCheckins ?? 0}</p>
@@ -589,7 +677,7 @@ export default function Home() {
 
         {view === "leaderboard" && (
           <div className={styles.viewBlock}>
-            <button className={styles.smallButton} type="button" onClick={() => updateLeaderboard()}>
+            <button className={styles.smallButton} type="button" onClick={() => void updateLeaderboard()}>
               Обновить
             </button>
             <div className={styles.leaderboard}>

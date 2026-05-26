@@ -1,49 +1,7 @@
-"use client";
+'use client';
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type PropsWithChildren,
-} from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import sdk from "@farcaster/miniapp-sdk";
-import { farcasterMiniApp } from "@farcaster/miniapp-wagmi-connector";
-import {
-  WagmiProvider,
-  createConfig,
-  http,
-  useAccount,
-  useConnect,
-} from "wagmi";
-import { base } from "wagmi/chains";
-import { baseAccount, injected } from "wagmi/connectors";
-import { APP_DISPLAY_NAME } from "@/lib/appConfig";
-
-export const wagmiConfig = createConfig({
-  chains: [base],
-  connectors: [
-    injected({ target: "rabby" }),
-    injected({ target: "metaMask" }),
-    injected(),
-    baseAccount({
-      appName: APP_DISPLAY_NAME,
-    }),
-    farcasterMiniApp(),
-  ],
-  transports: {
-    [base.id]: http(),
-  },
-});
-
-declare module "wagmi" {
-  interface Register {
-    config: typeof wagmiConfig;
-  }
-}
-
-const queryClient = new QueryClient();
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import sdk from '@farcaster/miniapp-sdk';
 
 interface MiniAppContextValue {
   context: Awaited<typeof sdk.context> | null;
@@ -59,30 +17,18 @@ export function useMiniApp() {
   return useContext(MiniAppContext);
 }
 
-function WalletAutoConnect() {
-  const { isConnected, status } = useAccount();
-  const { connectAsync, connectors, isPending } = useConnect();
-
-  useEffect(() => {
-    if (isConnected || isPending || status === "connecting" || status === "reconnecting") {
-      return;
+async function signalMiniAppReady() {
+  try {
+    const isInApp = await sdk.isInMiniApp();
+    if (isInApp) {
+      await sdk.actions.ready();
     }
-
-    const connector =
-      connectors.find((c) => c.id === "baseAccount") ??
-      connectors.find((c) => c.id === "farcaster");
-
-    if (!connector) {
-      return;
-    }
-
-    void connectAsync({ connector, chainId: base.id }).catch(() => undefined);
-  }, [connectAsync, connectors, isConnected, isPending, status]);
-
-  return null;
+  } catch {
+    // Safe no-op outside Base App or if host is not ready yet.
+  }
 }
 
-export function MiniAppProvider({ children }: PropsWithChildren) {
+export function MiniAppProvider({ children }: { children: ReactNode }) {
   const [context, setContext] = useState<Awaited<typeof sdk.context> | null>(null);
   const [isReady, setIsReady] = useState(false);
 
@@ -93,30 +39,27 @@ export function MiniAppProvider({ children }: PropsWithChildren) {
         if (isInApp) {
           setContext(await sdk.context);
         }
-      } catch {
-        // Outside mini app host
-      }
-
-      try {
-        await sdk.actions.ready();
-      } catch {
-        // Safe no-op outside Base App
+        await signalMiniAppReady();
       } finally {
         setIsReady(true);
       }
     };
 
     void init();
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void signalMiniAppReady();
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
   return (
     <MiniAppContext.Provider value={{ context, isReady }}>
-      <WagmiProvider config={wagmiConfig}>
-        <QueryClientProvider client={queryClient}>
-          <WalletAutoConnect />
-          {children}
-        </QueryClientProvider>
-      </WagmiProvider>
+      {children}
     </MiniAppContext.Provider>
   );
 }

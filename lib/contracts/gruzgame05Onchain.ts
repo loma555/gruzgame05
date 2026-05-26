@@ -24,6 +24,36 @@ export const gruzGame05OnchainAbi = [
     stateMutability: "payable",
     type: "function",
   },
+  {
+    inputs: [{ internalType: "address", name: "player", type: "address" }],
+    name: "getPlayer",
+    outputs: [
+      { internalType: "uint256", name: "score", type: "uint256" },
+      { internalType: "uint256", name: "streak", type: "uint256" },
+      { internalType: "uint256", name: "lastCheckinSlot", type: "uint256" },
+      { internalType: "bool", name: "canCheckin", type: "bool" },
+      { internalType: "uint256", name: "totalCheckins", type: "uint256" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "limit", type: "uint256" }],
+    name: "getLeaderboard",
+    outputs: [
+      {
+        components: [
+          { internalType: "address", name: "player", type: "address" },
+          { internalType: "uint256", name: "score", type: "uint256" },
+        ],
+        internalType: "struct GruzGame05Onchain.LeaderboardEntry[]",
+        name: "",
+        type: "tuple[]",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
 ] as const;
 
 export function withGruzGame05BuilderCodeDataSuffix(data: `0x${string}`): `0x${string}` {
